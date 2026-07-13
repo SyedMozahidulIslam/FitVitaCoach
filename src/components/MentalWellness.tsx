@@ -359,71 +359,157 @@ export default function MentalWellness({
 
   // 2. Burnout Risk Assessment (Low, Moderate, High, Severe)
   const burnoutAssessment = useMemo(() => {
+    // Sort all logs newest first for 14-day window or slice
+    const sortedMoodLogs = [...moodLogs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    const sortedSleepLogs = [...sleepLogs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Filter for logs within 14 days of the latest log (or current time if latest is older)
+    const latestRefTime = sortedMoodLogs.length > 0 
+      ? Math.max(new Date(sortedMoodLogs[0].timestamp).getTime(), Date.now())
+      : Date.now();
+    const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+
+    const moodLogs14 = sortedMoodLogs.filter(l => (latestRefTime - new Date(l.timestamp).getTime()) <= fourteenDaysMs);
+    const sleepLogs14 = sortedSleepLogs.filter(l => {
+      const dateMs = new Date(l.date).getTime();
+      return (latestRefTime - dateMs) <= fourteenDaysMs;
+    });
+
+    // Fallback to last 14 logs if filtered set is empty
+    const finalMoodLogs14 = moodLogs14.length > 0 ? moodLogs14 : sortedMoodLogs.slice(0, 14);
+    const finalSleepLogs14 = sleepLogs14.length > 0 ? sleepLogs14 : sortedSleepLogs.slice(0, 14);
+
     let score = 0;
     let reasons: string[] = [];
 
-    if (moodLogs.length > 0) {
-      // Stress level contribution
-      const recentStress = moodLogs.slice(0, 7);
-      const avgStress7 = recentStress.reduce((sum, l) => sum + l.stressLevel, 0) / recentStress.length;
-      if (avgStress7 >= 7) {
-        score += 35;
-        reasons.push("Chronic high cortisol levels (avg stress level: " + avgStress7.toFixed(1) + "/10)");
-      } else if (avgStress7 >= 4.5) {
+    // Aggregates over the last 14 days
+    let avgStress = 0;
+    let highStressDays = 0;
+    let stressTrend: "Rising" | "Stable" | "Declining" = "Stable";
+
+    let avgSleep = 0;
+    let sleepDeficitDays = 0;
+
+    let avgMotivation = 0;
+    let lowMotivationDays = 0;
+
+    if (finalMoodLogs14.length > 0) {
+      // 1. Chronic Stress Trends
+      avgStress = finalMoodLogs14.reduce((sum, l) => sum + l.stressLevel, 0) / finalMoodLogs14.length;
+      highStressDays = finalMoodLogs14.filter(l => l.stressLevel >= 7).length;
+
+      // stress trend comparison: newer 7 days vs previous 7 days of the 14-day range
+      const newerHalf = finalMoodLogs14.slice(0, Math.ceil(finalMoodLogs14.length / 2));
+      const olderHalf = finalMoodLogs14.slice(Math.ceil(finalMoodLogs14.length / 2));
+      const newerAvgStress = newerHalf.length > 0 ? newerHalf.reduce((sum, l) => sum + l.stressLevel, 0) / newerHalf.length : 0;
+      const olderAvgStress = olderHalf.length > 0 ? olderHalf.reduce((sum, l) => sum + l.stressLevel, 0) / olderHalf.length : 0;
+
+      if (newerAvgStress - olderAvgStress > 0.8) {
+        stressTrend = "Rising";
         score += 15;
-        reasons.push("Moderate cognitive fatigue patterns.");
+        reasons.push(`Rising stress trend in last 14 days (average stress increased to ${newerAvgStress.toFixed(1)}/10)`);
+      } else if (olderAvgStress - newerAvgStress > 0.8) {
+        stressTrend = "Declining";
+      } else {
+        stressTrend = "Stable";
       }
 
-      // Energy level contribution
-      const logsWithEnergy = recentStress.filter(l => l.energyLevel !== undefined);
-      if (logsWithEnergy.length > 0) {
-        const avgEnergy = logsWithEnergy.reduce((sum, l) => sum + (l.energyLevel || 5), 0) / logsWithEnergy.length;
-        if (avgEnergy <= 4) {
-          score += 25;
-          reasons.push("Deep energy depletion & sustained physical lethargy.");
-        }
+      if (avgStress >= 7) {
+        score += 30;
+        reasons.push(`Chronic high stress levels observed (avg stress: ${avgStress.toFixed(1)}/10)`);
+      } else if (avgStress >= 5) {
+        score += 15;
+        reasons.push(`Moderately elevated baseline tension (avg stress: ${avgStress.toFixed(1)}/10)`);
       }
 
-      // Motivation level contribution
-      const logsWithMotiv = recentStress.filter(l => l.motivationLevel !== undefined);
+      if (highStressDays >= 3) {
+        score += 15;
+        reasons.push(`Multiple high cortisol peaks (${highStressDays} out of 14 days with extreme stress logs)`);
+      }
+
+      // 2. Low Motivation Scores
+      const logsWithMotiv = finalMoodLogs14.filter(l => l.motivationLevel !== undefined);
       if (logsWithMotiv.length > 0) {
-        const avgMotiv = logsWithMotiv.reduce((sum, l) => sum + (l.motivationLevel || 5), 0) / logsWithMotiv.length;
-        if (avgMotiv <= 4) {
+        avgMotivation = logsWithMotiv.reduce((sum, l) => sum + (l.motivationLevel || 5), 0) / logsWithMotiv.length;
+        lowMotivationDays = logsWithMotiv.filter(l => (l.motivationLevel || 5) <= 4).length;
+
+        if (avgMotivation <= 4.5) {
           score += 20;
-          reasons.push("Low neural engagement or motivational drive.");
+          reasons.push(`Sustained neural fatigue & low motivation index (avg motivation: ${avgMotivation.toFixed(1)}/10)`);
+        } else if (avgMotivation <= 5.8) {
+          score += 10;
+          reasons.push(`Mild motivational apathy (avg motivation: ${avgMotivation.toFixed(1)}/10)`);
+        }
+
+        if (lowMotivationDays >= 3) {
+          score += 10;
+          reasons.push(`Frequent low motivation days (${lowMotivationDays} out of 14 days)`);
         }
       }
+    } else {
+      // Baseline if no mood logs
+      avgStress = 3.2;
+      avgMotivation = 7.1;
     }
 
-    // Sleep deficit
-    if (sleepLogs.length > 0) {
-      const avgSleepHours = sleepLogs.slice(0, 5).reduce((sum, l) => sum + l.hoursSlept, 0) / Math.min(5, sleepLogs.length);
-      if (avgSleepHours < 6) {
-        score += 20;
-        reasons.push("Consistent sleep deprivation (< 6.0 hours logged average)");
+    // 3. Reduced Sleep Quality
+    if (finalSleepLogs14.length > 0) {
+      avgSleep = finalSleepLogs14.reduce((sum, l) => sum + l.hoursSlept, 0) / finalSleepLogs14.length;
+      sleepDeficitDays = finalSleepLogs14.filter(l => l.hoursSlept < 6.5).length;
+
+      if (avgSleep < 6.0) {
+        score += 25;
+        reasons.push(`Critical sleep deprivation (avg sleep: ${avgSleep.toFixed(1)}h over last 14 days)`);
+      } else if (avgSleep < 7.0) {
+        score += 15;
+        reasons.push(`Sub-optimal sleep window (avg sleep: ${avgSleep.toFixed(1)}h over last 14 days)`);
       }
+
+      if (sleepDeficitDays >= 3) {
+        score += 10;
+        reasons.push(`Chronic sleep deficit patterns (${sleepDeficitDays} nights with < 6.5h of rest)`);
+      }
+    } else {
+      // Baseline if no sleep logs
+      avgSleep = 7.4;
     }
 
     // Risk calculation
     let level: "Low" | "Moderate" | "High" | "Severe" = "Low";
-    let color = "text-emerald-500 bg-emerald-500/10";
-    let desc = "Your energy reservoirs and lifestyle factors are safely integrated.";
+    let color = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+    let desc = "Your energy reservoirs and mental lifestyle parameters are healthy and balanced.";
 
-    if (score >= 75) {
+    if (score >= 70) {
       level = "Severe";
       color = "text-rose-600 bg-rose-500/10 border-rose-200";
-      desc = "Critical exhaustion threshold breached. Absolute rest protocol and cognitive offloading advised.";
-    } else if (score >= 45) {
+      desc = "Critical mental & systemic burnout threshold breached. Immediate rest protocol and therapeutic support advised.";
+    } else if (score >= 40) {
       level = "High";
       color = "text-amber-600 bg-amber-500/10 border-amber-200";
-      desc = "Elevated risk of systemic exhaustion. Consider schedule pruning and deep restorative sleep intervals.";
-    } else if (score >= 20) {
+      desc = "Elevated risk of chronic exhaustion. Consider schedule reduction, sleep resetting, and mind-body pauses.";
+    } else if (score >= 18) {
       level = "Moderate";
       color = "text-blue-500 bg-blue-500/10 border-blue-200";
-      desc = "Early signs of mental wear. Interspersed box breathing during tasks is recommended.";
+      desc = "Early signs of mental & cognitive wear. Incorporating vagus nerve breathing drills is highly recommended.";
     }
 
-    return { score, level, color, desc, reasons };
+    return { 
+      score: Math.min(100, score), 
+      level, 
+      color, 
+      desc, 
+      reasons,
+      stats14: {
+        avgStress,
+        highStressDays,
+        stressTrend,
+        avgSleep,
+        sleepDeficitDays,
+        avgMotivation,
+        lowMotivationDays,
+        totalLogsCount: finalMoodLogs14.length
+      }
+    };
   }, [moodLogs, sleepLogs]);
 
   // 3. Trigger analysis (Positive vs Negative influence identification)
@@ -1065,48 +1151,158 @@ export default function MentalWellness({
               </div>
             </div>
 
-            {/* Burnout Detection Panel */}
-            <div className={`p-5 rounded-3xl border shadow-xs flex flex-col justify-between transition-all ${burnoutAssessment.color}`}>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-black/5">
-                  FATIGUE ENGINE PREDICTION
-                </span>
-                <div className="flex items-center gap-1.5 mt-2">
-                  <AlertTriangle className="w-5 h-5 shrink-0" />
-                  <h3 className="text-md font-bold text-gray-900">Burnout Risk: {burnoutAssessment.level}</h3>
+            {/* Burnout Risk Assessment Card */}
+            <div className={`p-5 rounded-3xl border shadow-xs flex flex-col justify-between transition-all bg-white hover:shadow-md ${burnoutAssessment.color}`}>
+              <div className="space-y-4">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-900/10 text-slate-800">
+                      14-DAY BURNOUT ASSESSMENT
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <Flame className="w-5 h-5 text-rose-500" />
+                      <h3 className="text-lg font-extrabold text-slate-900">
+                        Risk Level: <span className="underline decoration-slate-400">{burnoutAssessment.level}</span>
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs font-black font-mono text-slate-800 bg-slate-100 px-2 py-1 rounded-lg">
+                      Index: {burnoutAssessment.score}/100
+                    </span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-gray-700 leading-relaxed mt-2">
+
+                <p className="text-xs text-slate-600 leading-relaxed font-medium">
                   {burnoutAssessment.desc}
                 </p>
-              </div>
 
-              {/* Checklist details inside burnout panel */}
-              <div className="my-4 py-2 border-t border-black/5 border-b border-black/5 space-y-1.5">
-                <div className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Identified Risk Factors:</div>
-                {burnoutAssessment.reasons.length === 0 ? (
-                  <div className="text-xs font-bold text-emerald-800 flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" /> Healthy autonomic baseline verified.
+                {/* Burnout Meter Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                    <span>Exhaustion Vector</span>
+                    <span>{burnoutAssessment.score}%</span>
                   </div>
-                ) : (
-                  burnoutAssessment.reasons.map((r, i) => (
-                    <div key={i} className="text-[10px] leading-tight font-medium text-slate-800 flex items-start gap-1">
-                      <span>•</span>
-                      <span>{r}</span>
+                  <div className="w-full h-2 bg-slate-200/60 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        burnoutAssessment.level === "Severe" ? "bg-rose-600" :
+                        burnoutAssessment.level === "High" ? "bg-amber-500" :
+                        burnoutAssessment.level === "Moderate" ? "bg-blue-500" :
+                        "bg-emerald-500"
+                      }`}
+                      style={{ width: `${burnoutAssessment.score}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Aggregated 14-Day Indicators */}
+                <div className="space-y-2 border-t border-black/5 pt-3">
+                  <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider">
+                    Aggregated 14-Day Metrics
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-2">
+                    {/* Stress Trends */}
+                    <div className="flex items-center justify-between bg-black/5 p-2 rounded-xl text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="w-4 h-4 text-red-500 shrink-0" />
+                        <div>
+                          <div className="font-bold text-slate-800">Chronic Stress Trend</div>
+                          <div className="text-[10px] text-slate-500 leading-tight">
+                            Avg: {burnoutAssessment.stats14.avgStress.toFixed(1)}/10 • Trend: {burnoutAssessment.stats14.stressTrend}
+                          </div>
+                        </div>
+                      </div>
+                      {burnoutAssessment.stats14.highStressDays > 0 ? (
+                        <span className="px-2 py-0.5 bg-rose-500/10 text-rose-700 font-bold text-[10px] rounded-lg whitespace-nowrap">
+                          {burnoutAssessment.stats14.highStressDays} Peaks
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-700 font-bold text-[10px] rounded-lg whitespace-nowrap">
+                          No Peaks
+                        </span>
+                      )}
                     </div>
-                  ))
-                )}
+
+                    {/* Sleep Deficit */}
+                    <div className="flex items-center justify-between bg-black/5 p-2 rounded-xl text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <Moon className="w-4 h-4 text-indigo-500 shrink-0" />
+                        <div>
+                          <div className="font-bold text-slate-800">Sleep Quality Index</div>
+                          <div className="text-[10px] text-slate-500 leading-tight">
+                            Avg: {burnoutAssessment.stats14.avgSleep.toFixed(1)} hrs of rest
+                          </div>
+                        </div>
+                      </div>
+                      {burnoutAssessment.stats14.sleepDeficitDays > 0 ? (
+                        <span className="px-2 py-0.5 bg-amber-500/10 text-amber-700 font-bold text-[10px] rounded-lg whitespace-nowrap">
+                          {burnoutAssessment.stats14.sleepDeficitDays} Deficits
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-700 font-bold text-[10px] rounded-lg whitespace-nowrap">
+                          Optimal Sleep
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Motivation Score */}
+                    <div className="flex items-center justify-between bg-black/5 p-2 rounded-xl text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <TrendingUp className="w-4 h-4 text-amber-500 shrink-0" />
+                        <div>
+                          <div className="font-bold text-slate-800">Low Motivation Index</div>
+                          <div className="text-[10px] text-slate-500 leading-tight">
+                            Avg Drive: {burnoutAssessment.stats14.avgMotivation.toFixed(1)}/10
+                          </div>
+                        </div>
+                      </div>
+                      {burnoutAssessment.stats14.lowMotivationDays > 0 ? (
+                        <span className="px-2 py-0.5 bg-orange-500/10 text-orange-700 font-bold text-[10px] rounded-lg whitespace-nowrap">
+                          {burnoutAssessment.stats14.lowMotivationDays} Low Days
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-700 font-bold text-[10px] rounded-lg whitespace-nowrap">
+                          High Drive
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Identified Risk Factors Details list */}
+                <div className="border-t border-black/5 pt-3">
+                  <div className="text-[10px] font-black uppercase text-slate-500 tracking-wider mb-1.5">
+                    Identified Risk Factors
+                  </div>
+                  {burnoutAssessment.reasons.length === 0 ? (
+                    <div className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" /> Healthy autonomic baseline verified.
+                    </div>
+                  ) : (
+                    <div className="max-h-24 overflow-y-auto pr-1 space-y-1 scrollbar-thin">
+                      {burnoutAssessment.reasons.map((r, i) => (
+                        <div key={i} className="text-[10px] leading-tight font-medium text-slate-700 flex items-start gap-1">
+                          <span className="text-rose-500">•</span>
+                          <span>{r}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <div className="text-[10px] font-black uppercase text-gray-700 tracking-wider">Restorative Protocol:</div>
+              {/* Action Button */}
+              <div className="space-y-1 mt-4 pt-3 border-t border-black/5">
                 <button 
                   onClick={() => {
-                    alert("Self-care habits loaded! Adding 'Hourly Vagus Breathing Lockout' and '9:00 PM Digital Sabbatical' to active habit builder.");
-                    onAddXp(50);
+                    alert("A customized mental recovery protocol has been initialized! Added 'Box Breathing drill', 'Gratitude mapping session', and '11:00 PM Bedtime alert' to your active actionable protocols.");
+                    onAddXp(150);
                   }}
-                  className="w-full text-center py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all"
+                  className="w-full text-center py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-sm"
                 >
-                  Activate Restorative Habits
+                  Activate Restorative Protocol (+150 XP)
                 </button>
               </div>
             </div>
