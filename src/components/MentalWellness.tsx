@@ -12,6 +12,10 @@ import {
 } from "recharts";
 import { motion, AnimatePresence } from "motion/react";
 import { MoodLog, WorkoutLog, FoodLog, WaterLog, SleepLog } from "../types";
+import FocusProductivityCenter from "./FocusProductivityCenter";
+import LifeReflectionJournal from "./LifeReflectionJournal";
+import DigitalWellbeingCenter from "./DigitalWellbeingCenter";
+import RecoveryRelaxationStudio from "./RecoveryRelaxationStudio";
 
 interface MentalWellnessProps {
   moodLogs: MoodLog[];
@@ -69,8 +73,8 @@ export default function MentalWellness({
 }: MentalWellnessProps) {
   
   // --- Tab States ---
-  // "dashboard" | "checkin" | "breathing"
-  const [activeTab, setActiveTab] = useState<"dashboard" | "checkin" | "breathing">("dashboard");
+  // "dashboard" | "checkin" | "breathing" | "focus" | "journal" | "digital" | "recovery"
+  const [activeTab, setActiveTab] = useState<"dashboard" | "checkin" | "breathing" | "focus" | "journal" | "digital" | "recovery">("dashboard");
 
   // --- Security & Privacy States ---
   const [pinCode, setPinCode] = useState<string>(() => {
@@ -1008,30 +1012,62 @@ export default function MentalWellness({
         </div>
 
         {/* Tab switcher buttons inside header */}
-        <div className="flex bg-slate-900 p-1 rounded-2xl border border-slate-800/80 shrink-0">
+        <div className="flex flex-wrap gap-1 bg-slate-900 p-1 rounded-2xl border border-slate-800/80 max-w-full">
           <button 
             onClick={() => setActiveTab("dashboard")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === "dashboard" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "dashboard" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
             }`}
           >
-            📊 Analytics & Timeline
+            📊 Analytics
           </button>
           <button 
             onClick={() => setActiveTab("checkin")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === "checkin" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "checkin" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
             }`}
           >
             ✏️ EQ Check-In
           </button>
           <button 
             onClick={() => setActiveTab("breathing")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              activeTab === "breathing" ? "bg-emerald-500 text-slate-950" : "text-slate-400 hover:text-white"
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "breathing" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
             }`}
           >
             🌬️ Vagus Coach
+          </button>
+          <button 
+            onClick={() => setActiveTab("focus")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "focus" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            🎯 Focus Workspace
+          </button>
+          <button 
+            onClick={() => setActiveTab("journal")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "journal" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            📓 Reflection Journal
+          </button>
+          <button 
+            onClick={() => setActiveTab("digital")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "digital" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            📱 Digital Wellbeing
+          </button>
+          <button 
+            onClick={() => setActiveTab("recovery")}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all ${
+              activeTab === "recovery" ? "bg-emerald-500 text-slate-950 font-black" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            🧘 Recovery Studio
           </button>
         </div>
       </div>
@@ -2214,6 +2250,22 @@ export default function MentalWellness({
           </div>
 
         </div>
+      )}
+
+      {activeTab === "focus" && (
+        <FocusProductivityCenter onAddXp={onAddXp} />
+      )}
+
+      {activeTab === "journal" && (
+        <LifeReflectionJournal onAddXp={onAddXp} />
+      )}
+
+      {activeTab === "digital" && (
+        <DigitalWellbeingCenter onAddXp={onAddXp} />
+      )}
+
+      {activeTab === "recovery" && (
+        <RecoveryRelaxationStudio onAddXp={onAddXp} sleepLogs={sleepLogs} />
       )}
 
     </div>

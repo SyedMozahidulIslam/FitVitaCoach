@@ -282,6 +282,48 @@ app.post("/api/coach/meal-plan", async (req, res) => {
   }
 });
 
+// AI Reflection Summary API endpoint
+app.post("/api/coach/reflection-summary", async (req, res) => {
+  const { reflectionPeriod, recentJournals, answers } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    console.warn("GEMINI_API_KEY not configured. Serving offline reflection summarizer.");
+    return res.json({ summary: null });
+  }
+
+  const prompt = `
+    You are the FitVita Cognitive Intelligence engine, an advanced emotional intelligence and prefrontal wellness coach.
+    
+    Synthesize a highly personalized mental wellness analysis for the user based on their recent reflection period (${reflectionPeriod}), their recent journals, and their reflection answers.
+    
+    Recent Journals:
+    ${JSON.stringify(recentJournals, null, 2)}
+    
+    Reflection Answers:
+    - Peak moment: ${answers?.q1 || "Not specified"}
+    - Chronic triggers: ${answers?.q2 || "Not specified"}
+    - Wisdom forward: ${answers?.q3 || "Not specified"}
+    
+    Deliver a highly encouraging, scientifically grounded emotional and cognitive summary (in beautiful Markdown format). Talk about their emotional resilience, prefrontal self-assessment, and recommend personalized behavioral protocols (e.g. mindfulness techniques, sensory blockouts, or vagus nerve stimulation ratios) to help them thrive.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        temperature: 0.35,
+      },
+    });
+
+    res.json({ summary: response.text });
+  } catch (error) {
+    console.error("Gemini Reflection Summary Error:", error);
+    res.json({ summary: null });
+  }
+});
+
 // AI Food Recognition API endpoint
 app.post("/api/coach/analyze-food", async (req, res) => {
   const { foodDescription, base64Image } = req.body;
