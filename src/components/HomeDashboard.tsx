@@ -36,6 +36,7 @@ export default function HomeDashboard({
   const [currentTime, setCurrentTime] = useState<string>("");
   const [currentDateStr, setCurrentDateStr] = useState<string>("");
   const [simulatedHeartRate, setSimulatedHeartRate] = useState<number>(72);
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<any>(null);
 
   useEffect(() => {
     // Update local clock and date
@@ -91,6 +92,98 @@ export default function HomeDashboard({
   const lastSleep = sleepLogs.length > 0 ? sleepLogs[sleepLogs.length - 1] : { hoursSlept: 0, qualityScore: 0 };
 
   const caloriesRemaining = Math.max(0, userProfile.dailyCalorieTarget - todayCalories + todayCaloriesBurned);
+
+  // --- Dynamic Historical Scoring & Streak Computing Engine ---
+  const getScoreForDate = (dateStr: string) => {
+    let score = 50; // baseline
+    
+    // Water metric
+    const dateWater = waterLogs.filter(w => w.timestamp.startsWith(dateStr)).reduce((s, w) => s + w.amountMl, 0);
+    if (dateWater >= userProfile.waterTargetMl) score += 15;
+    else if (dateWater > 1000) score += 8;
+
+    // Workout metric
+    const dateWorkouts = workoutLogs.filter(w => w.timestamp.startsWith(dateStr));
+    if (dateWorkouts.length > 0) score += 15;
+
+    // Diet metric
+    const dateCal = foodLogs.filter(f => f.timestamp.startsWith(dateStr)).reduce((s, f) => s + f.calories, 0);
+    if (dateCal > 0 && dateCal <= userProfile.dailyCalorieTarget) score += 20;
+
+    return Math.min(100, score);
+  };
+
+  const streakStats = (() => {
+    let currentStreak = 0;
+    let maxStreak = 0;
+    
+    // Compute for the last 30 days
+    const scoresList: { date: string; score: number; dateLabel: string; water: number; workoutsCount: number; calories: number }[] = [];
+    
+    for (let i = 0; i < 30; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const score = getScoreForDate(dateStr);
+      
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.toLocaleDateString("en-US", { day: "numeric" });
+      const monthName = d.toLocaleDateString("en-US", { month: "short" });
+      
+      const dateWater = waterLogs.filter(w => w.timestamp.startsWith(dateStr)).reduce((s, w) => s + w.amountMl, 0);
+      const dateWorkoutsCount = workoutLogs.filter(w => w.timestamp.startsWith(dateStr)).length;
+      const dateCal = foodLogs.filter(f => f.timestamp.startsWith(dateStr)).reduce((s, f) => s + f.calories, 0);
+
+      scoresList.push({
+        date: dateStr,
+        score,
+        dateLabel: `${dayName}, ${monthName} ${dayNum}`,
+        water: dateWater,
+        workoutsCount: dateWorkoutsCount,
+        calories: dateCal
+      });
+    }
+
+    let index = 0;
+    const todayScore = scoresList[0].score;
+    const yesterdayScore = scoresList[1]?.score || 0;
+    
+    if (todayScore >= 80) {
+      while (index < scoresList.length && scoresList[index].score >= 80) {
+        currentStreak++;
+        index++;
+      }
+    } else {
+      if (yesterdayScore >= 80) {
+        index = 1;
+        while (index < scoresList.length && scoresList[index].score >= 80) {
+          currentStreak++;
+          index++;
+        }
+      } else {
+        currentStreak = 0;
+      }
+    }
+
+    // Compute max streak across the entire 30 days
+    let streakCount = 0;
+    for (let i = scoresList.length - 1; i >= 0; i--) {
+      if (scoresList[i].score >= 80) {
+        streakCount++;
+        if (streakCount > maxStreak) {
+          maxStreak = streakCount;
+        }
+      } else {
+        streakCount = 0;
+      }
+    }
+
+    return {
+      currentStreak,
+      maxStreak,
+      scoresHistory: scoresList.slice(0, 14).reverse() // Last 14 days chronologically
+    };
+  })();
 
   // Calculate dynamic unlocked badges
   const maxHabitStreak = habits.length > 0 ? Math.max(...habits.map(h => h.streak)) : 0;
@@ -802,6 +895,107 @@ export default function HomeDashboard({
 
           <div className="text-[8px] text-gray-400 font-black uppercase tracking-widest text-center pt-2 border-t border-gray-100/80">
             Concentric Biomarkers
+          </div>
+        </div>
+
+        {/* Global Streak & Health Score Calendar View (col-span-1 md:col-span-2 lg:col-span-2) */}
+        <div className="md:col-span-2 lg:col-span-2 bg-white p-5 rounded-[2rem] border border-gray-150/60 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between space-y-4" id="bento_global_streak_tile">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100/80">
+            <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+              <Flame className="w-4.5 h-4.5 text-orange-500 animate-bounce" />
+              Global Streak Calendar
+            </h4>
+            <span className="text-[10px] font-black text-orange-700 bg-orange-50 px-2.5 py-0.5 rounded-full border border-orange-100/40">
+              80%+ Health Score
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between bg-gradient-to-br from-orange-50 to-amber-50/50 p-3 rounded-2xl border border-orange-100/30">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-orange-500 text-white rounded-xl shadow-xs">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-orange-700 uppercase block tracking-wider leading-none">Active Streak</span>
+                  <span className="text-xl font-black text-orange-950">{streakStats.currentStreak} Days</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] font-bold text-gray-400 uppercase block tracking-wider leading-none">Personal Best</span>
+                <span className="text-sm font-black text-gray-700">{streakStats.maxStreak} Days</span>
+              </div>
+            </div>
+
+            {/* Interactive Grid of last 14 days */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest block mb-1">Last 14 Days</span>
+              <div className="grid grid-cols-7 gap-1.5">
+                {streakStats.scoresHistory.map((day) => {
+                  const isActive = day.score >= 80;
+                  const isSelected = selectedCalendarDay?.date === day.date;
+                  
+                  return (
+                    <button
+                      key={day.date}
+                      onClick={() => setSelectedCalendarDay(isSelected ? null : day)}
+                      className={`relative aspect-square rounded-lg border flex flex-col items-center justify-center transition-all cursor-pointer group active:scale-95 ${
+                        isActive
+                          ? "bg-emerald-500 hover:bg-emerald-600 text-white border-emerald-400 shadow-[0_2px_8px_rgba(16,185,129,0.15)]"
+                          : "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-200"
+                      } ${isSelected ? "ring-2 ring-orange-500 ring-offset-2" : ""}`}
+                    >
+                      <span className="text-[8px] font-bold opacity-70 leading-none mb-0.5">
+                        {day.dateLabel.split(",")[0]}
+                      </span>
+                      <span className="text-xs font-black leading-none">
+                        {day.dateLabel.split(" ")[2]}
+                      </span>
+                      {/* Mini hover status */}
+                      <span className={`absolute -bottom-1 w-1.5 h-1.5 rounded-full ${isActive ? "bg-white" : "bg-gray-400"}`} />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Interactive drill-down day detail */}
+            {selectedCalendarDay ? (
+              <div className="p-3 bg-slate-50 rounded-2xl border border-gray-200 animate-fadeIn space-y-2">
+                <div className="flex justify-between items-center pb-1.5 border-b border-gray-200/50">
+                  <span className="text-[10px] font-bold text-slate-800 font-mono">
+                    Details for: {selectedCalendarDay.dateLabel}
+                  </span>
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                    selectedCalendarDay.score >= 80 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                  }`}>
+                    Score: {selectedCalendarDay.score}%
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-semibold text-gray-600">
+                  <div className="bg-blue-50/50 p-1.5 rounded-lg border border-blue-100/30">
+                    <span className="block text-blue-500 text-[8px] font-black uppercase tracking-wider">Water</span>
+                    <span className="font-extrabold text-blue-950">{selectedCalendarDay.water}ml</span>
+                  </div>
+                  <div className="bg-amber-50/50 p-1.5 rounded-lg border border-amber-100/30">
+                    <span className="block text-amber-500 text-[8px] font-black uppercase tracking-wider">Exercise</span>
+                    <span className="font-extrabold text-amber-950">{selectedCalendarDay.workoutsCount} Done</span>
+                  </div>
+                  <div className="bg-emerald-50/50 p-1.5 rounded-lg border border-emerald-100/30">
+                    <span className="block text-emerald-500 text-[8px] font-black uppercase tracking-wider">Diet</span>
+                    <span className="font-extrabold text-emerald-950">{selectedCalendarDay.calories} kcal</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[9px] text-gray-400 font-bold text-center">
+                👉 Click any calendar block above to analyze dynamic wellness details
+              </p>
+            )}
+          </div>
+
+          <div className="pt-2 border-t border-gray-100/80 text-[8px] text-gray-400 font-black uppercase tracking-widest text-center">
+            Health Consistency Grid
           </div>
         </div>
 

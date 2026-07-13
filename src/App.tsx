@@ -21,6 +21,76 @@ import MoreModules from "./components/MoreModules";
 import AICoachChat from "./components/AICoachChat";
 import BadgesVault from "./components/BadgesVault";
 
+const getRelativeDateStr = (daysAgo: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().split("T")[0];
+};
+
+const initialFoodLogs = (): FoodLog[] => {
+  const today = getRelativeDateStr(0);
+  const logs: FoodLog[] = [
+    { id: "f-1", timestamp: `${today}T08:30:00Z`, mealType: "Breakfast", foodName: "Whole-wheat Handmade Roti with Mixed Dal", calories: 320, protein: 14, carbs: 52, fat: 5, servingSize: "2 Rotis" },
+    { id: "f-2", timestamp: `${today}T13:15:00Z`, mealType: "Lunch", foodName: "Steamed Lal Chal Rice with Baked Hilsha Fish", calories: 480, protein: 32, carbs: 45, fat: 12, servingSize: "1 plate" }
+  ];
+  const activeDays = [1, 2, 3, 4, 5, 6, 8, 9, 10];
+  activeDays.forEach(days => {
+    const d = getRelativeDateStr(days);
+    logs.push({
+      id: `f-past-${days}`,
+      timestamp: `${d}T13:00:00Z`,
+      mealType: "Lunch",
+      foodName: "Custom Healthy Balanced Meal",
+      calories: 550,
+      protein: 30,
+      carbs: 60,
+      fat: 15,
+      servingSize: "1 portion"
+    });
+  });
+  return logs;
+};
+
+const initialWorkoutLogs = (): WorkoutLog[] => {
+  const today = getRelativeDateStr(0);
+  const logs: WorkoutLog[] = [
+    { id: "w-1", timestamp: `${today}T18:00:00Z`, exerciseName: "Brisk Walking with form correction", category: "Cardio", durationMinutes: 30, caloriesBurned: 150, notes: "Felt strong, high cadence" }
+  ];
+  const activeDays = [1, 2, 4, 5, 8, 10];
+  activeDays.forEach(days => {
+    const d = getRelativeDateStr(days);
+    logs.push({
+      id: `w-past-${days}`,
+      timestamp: `${d}T17:30:00Z`,
+      exerciseName: "Brisk Walking (Regular)",
+      category: "Cardio",
+      durationMinutes: 30,
+      caloriesBurned: 150,
+      notes: "Steady pace workout"
+    });
+  });
+  return logs;
+};
+
+const initialWaterLogs = (): WaterLog[] => {
+  const today = getRelativeDateStr(0);
+  const logs: WaterLog[] = [
+    { id: "wat-1", timestamp: `${today}T09:00:00Z`, amountMl: 500 },
+    { id: "wat-2", timestamp: `${today}T11:30:00Z`, amountMl: 250 },
+    { id: "wat-3", timestamp: `${today}T14:45:00Z`, amountMl: 500 }
+  ];
+  const activeDays = [1, 2, 3, 4, 5, 6, 8, 9, 10];
+  activeDays.forEach(days => {
+    const d = getRelativeDateStr(days);
+    logs.push(
+      { id: `wat-past-${days}-1`, timestamp: `${d}T10:00:00Z`, amountMl: 1000 },
+      { id: `wat-past-${days}-2`, timestamp: `${d}T15:00:00Z`, amountMl: 1000 },
+      { id: `wat-past-${days}-3`, timestamp: `${d}T20:00:00Z`, amountMl: 500 }
+    );
+  });
+  return logs;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -53,31 +123,19 @@ export default function App() {
   const [foodLogs, setFoodLogs] = useState<FoodLog[]>(() => {
     const saved = secureStorage.getItem("fit_food_logs");
     if (saved) return JSON.parse(saved);
-    const today = new Date().toISOString().split("T")[0];
-    return [
-      { id: "1", timestamp: `${today}T08:30:00Z`, mealType: "Breakfast", foodName: "Whole-wheat Handmade Roti with Mixed Dal", calories: 320, protein: 14, carbs: 52, fat: 5, servingSize: "2 Rotis" },
-      { id: "2", timestamp: `${today}T13:15:00Z`, mealType: "Lunch", foodName: "Steamed Lal Chal Rice with Baked Hilsha Fish", calories: 480, protein: 32, carbs: 45, fat: 12, servingSize: "1 plate" }
-    ];
+    return initialFoodLogs();
   });
 
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>(() => {
     const saved = secureStorage.getItem("fit_workout_logs");
     if (saved) return JSON.parse(saved);
-    const today = new Date().toISOString().split("T")[0];
-    return [
-      { id: "1", timestamp: `${today}T18:00:00Z`, exerciseName: "Brisk Walking with form correction", category: "Cardio", durationMinutes: 30, caloriesBurned: 150, notes: "Felt strong, high cadence" }
-    ];
+    return initialWorkoutLogs();
   });
 
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>(() => {
     const saved = secureStorage.getItem("fit_water_logs");
     if (saved) return JSON.parse(saved);
-    const today = new Date().toISOString().split("T")[0];
-    return [
-      { id: "1", timestamp: `${today}T09:00:00Z`, amountMl: 500 },
-      { id: "2", timestamp: `${today}T11:30:00Z`, amountMl: 250 },
-      { id: "3", timestamp: `${today}T14:45:00Z`, amountMl: 500 }
-    ];
+    return initialWaterLogs();
   });
 
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>(() => {
@@ -274,6 +332,93 @@ export default function App() {
 
   const dailyHealthScore = calculateDailyHealthScore();
 
+  // App-level global streak computation
+  const getAppScoreForDate = (dateStr: string) => {
+    let score = 50; // baseline
+    const dateWater = waterLogs.filter(w => w.timestamp.startsWith(dateStr)).reduce((s, w) => s + w.amountMl, 0);
+    if (dateWater >= userProfile.waterTargetMl) score += 15;
+    else if (dateWater > 1000) score += 8;
+
+    const dateWorkouts = workoutLogs.filter(w => w.timestamp.startsWith(dateStr));
+    if (dateWorkouts.length > 0) score += 15;
+
+    const dateCal = foodLogs.filter(f => f.timestamp.startsWith(dateStr)).reduce((s, f) => s + f.calories, 0);
+    if (dateCal > 0 && dateCal <= userProfile.dailyCalorieTarget) score += 20;
+
+    return Math.min(100, score);
+  };
+
+  const calculateGlobalStreak = () => {
+    let currentStreak = 0;
+    let maxStreak = 0;
+    
+    const scoresList: { score: number }[] = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const score = getAppScoreForDate(dateStr);
+      scoresList.push({ score });
+    }
+
+    let index = 0;
+    const todayScore = scoresList[0].score;
+    const yesterdayScore = scoresList[1]?.score || 0;
+    
+    if (todayScore >= 80) {
+      while (index < scoresList.length && scoresList[index].score >= 80) {
+        currentStreak++;
+        index++;
+      }
+    } else {
+      if (yesterdayScore >= 80) {
+        index = 1;
+        while (index < scoresList.length && scoresList[index].score >= 80) {
+          currentStreak++;
+          index++;
+        }
+      } else {
+        currentStreak = 0;
+      }
+    }
+
+    let streakCount = 0;
+    for (let i = scoresList.length - 1; i >= 0; i--) {
+      if (scoresList[i].score >= 80) {
+        streakCount++;
+        if (streakCount > maxStreak) {
+          maxStreak = streakCount;
+        }
+      } else {
+        streakCount = 0;
+      }
+    }
+
+    return { currentStreak, maxStreak };
+  };
+
+  const globalStreakStats = calculateGlobalStreak();
+
+  const getLast7DaysScores = () => {
+    const scores = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const score = getAppScoreForDate(dateStr);
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.toLocaleDateString("en-US", { day: "numeric" });
+      scores.push({
+        date: dateStr,
+        dayName,
+        dayNum,
+        score,
+        isToday: i === 0,
+      });
+    }
+    return scores;
+  };
+
   useEffect(() => {
     if (dailyHealthScore === 100) {
       if (!hasCelebrated100) {
@@ -455,6 +600,8 @@ export default function App() {
             onToggleHabit={handleToggleHabit}
             onAddHabit={handleAddHabit}
             onAddXp={handleAddXp}
+            globalStreak={globalStreakStats.currentStreak}
+            maxGlobalStreak={globalStreakStats.maxStreak}
           />
         )}
 
@@ -677,6 +824,65 @@ export default function App() {
                 <p className="text-[10px] text-gray-400 leading-relaxed">
                   Compounds directly into your FitVita Interactive Trophy & Badge system. Keep completing daily checklists to upgrade tiers!
                 </p>
+              </div>
+            </div>
+
+            {/* Last 7 Days Health Score Context Mini Bar Chart */}
+            <div className="space-y-3 bg-slate-50 p-4 rounded-3xl border border-gray-100 text-left relative">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                  Last 7 Days Context
+                </span>
+                <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100/50">
+                  Perfect Day Highlighted
+                </span>
+              </div>
+              
+              <div className="flex items-end justify-between h-20 pt-2 px-1">
+                {getLast7DaysScores().map((day) => {
+                  const isPerfect = day.score === 100;
+                  return (
+                    <div key={day.date} className="flex flex-col items-center flex-1 group relative">
+                      {/* Score tooltip on hover */}
+                      <div className="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900 text-white text-[8px] font-black px-1.5 py-0.5 rounded pointer-events-none z-20 shadow-sm">
+                        {day.score}%
+                      </div>
+                      
+                      {/* Bar container */}
+                      <div className="w-full flex items-end justify-center h-10 relative px-1">
+                        {day.isToday && (
+                          <div className="absolute -top-3.5 text-amber-500 text-[10px] animate-bounce">
+                            👑
+                          </div>
+                        )}
+                        <div 
+                          style={{ height: `${Math.max(15, day.score)}%` }}
+                          className={`w-3 sm:w-4 rounded-t-md transition-all duration-500 relative ${
+                            day.isToday 
+                              ? "bg-gradient-to-t from-emerald-500 to-teal-400 shadow-[0_2px_8px_rgba(16,185,129,0.3)]" 
+                              : isPerfect 
+                                ? "bg-emerald-400" 
+                                : day.score >= 80 
+                                  ? "bg-emerald-300" 
+                                  : "bg-gray-200"
+                          }`}
+                        >
+                          {day.isToday && (
+                            <span className="absolute inset-0 bg-white/25 rounded-t-md animate-pulse" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Day Labels */}
+                      <span className={`text-[8px] font-black uppercase mt-1 ${day.isToday ? "text-emerald-600" : "text-gray-400"}`}>
+                        {day.dayName}
+                      </span>
+                      <span className={`text-[9px] font-bold ${day.isToday ? "text-emerald-700 font-black" : "text-gray-500"}`}>
+                        {day.dayNum}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 

@@ -7,6 +7,8 @@ interface HabitCoachProps {
   onToggleHabit: (id: string, date: string) => void;
   onAddHabit: (habit: Omit<Habit, "id" | "completedDays" | "streak">) => void;
   onAddXp: (amount: number) => void;
+  globalStreak?: number;
+  maxGlobalStreak?: number;
 }
 
 const PRESET_CHALLENGES = [
@@ -19,7 +21,9 @@ export default function HabitCoach({
   habits,
   onToggleHabit,
   onAddHabit,
-  onAddXp
+  onAddXp,
+  globalStreak = 0,
+  maxGlobalStreak = 0
 }: HabitCoachProps) {
   const [newHabitName, setNewHabitName] = useState("");
   const [habitCategory, setHabitCategory] = useState<"Morning" | "Night" | "Productivity" | "Lifestyle" | "Nutrition">("Morning");
@@ -51,6 +55,34 @@ export default function HabitCoach({
           <p className="text-xs text-gray-500 mt-1">
             Build consistency, structure morning or night routines, and unlock seasonal wellness achievements.
           </p>
+        </div>
+      </div>
+
+      {/* Global Streak Status Banner */}
+      <div className="bg-gradient-to-r from-orange-500 to-amber-600 rounded-3xl p-6 text-white shadow-[0_4px_20px_rgba(249,115,22,0.15)] flex flex-col md:flex-row items-center justify-between gap-4" id="global_streak_banner">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center border border-white/20 shadow-inner">
+            <Trophy className="w-6 h-6 text-yellow-300 animate-bounce" />
+          </div>
+          <div>
+            <h3 className="text-base font-black flex items-center gap-1.5">
+              Global Health Consistency Streak
+            </h3>
+            <p className="text-xs text-orange-50 mt-1 max-w-xl font-medium leading-relaxed">
+              You are maintaining a <strong className="text-yellow-200">{globalStreak}-day consecutive streak</strong> of keeping your daily health score above 80%! Your high-performance habits are driving your lifestyle longevity.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-4 self-stretch md:self-auto items-center justify-between md:justify-end bg-white/10 px-5 py-3 rounded-2xl border border-white/10">
+          <div className="text-center min-w-[70px]">
+            <span className="block text-[8px] font-black uppercase tracking-wider text-orange-200 leading-none mb-1">Active Streak</span>
+            <span className="text-xl font-black">{globalStreak} Days</span>
+          </div>
+          <div className="h-8 w-[1px] bg-white/20" />
+          <div className="text-center min-w-[70px]">
+            <span className="block text-[8px] font-black uppercase tracking-wider text-orange-200 leading-none mb-1">Personal Best</span>
+            <span className="text-xl font-black">{maxGlobalStreak} Days</span>
+          </div>
         </div>
       </div>
 
