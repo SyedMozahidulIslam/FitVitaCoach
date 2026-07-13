@@ -1,0 +1,6 @@
+{
+  "name": "FitVitaCoach",
+  "description": "Your Personal Health, Nutrition, Fitness, Lifestyle and Wellness Coach. A premium comprehensive digital health operating system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
