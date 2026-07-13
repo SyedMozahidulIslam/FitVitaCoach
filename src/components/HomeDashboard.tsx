@@ -77,6 +77,17 @@ export default function HomeDashboard({
 
   const todayWater = waterLogs.filter(log => log.timestamp.startsWith(today)).reduce((sum, w) => sum + w.amountMl, 0);
 
+  const todayCardioMinutes = todayWorkouts
+    .filter(w => w.category === "Cardio" || w.category === "HIIT")
+    .reduce((sum, w) => sum + w.durationMinutes, 0);
+  const todayOtherMinutes = todayWorkouts
+    .filter(w => w.category !== "Cardio" && w.category !== "HIIT")
+    .reduce((sum, w) => sum + w.durationMinutes, 0);
+
+  // 4200 baseline passive steps + 130 steps/min for cardio + 45 steps/min for others
+  const todaySteps = 4200 + (todayCardioMinutes * 130) + (todayOtherMinutes * 45);
+  const stepProgressPercent = Math.min(100, (todaySteps / userProfile.stepTarget) * 100);
+
   const lastSleep = sleepLogs.length > 0 ? sleepLogs[sleepLogs.length - 1] : { hoursSlept: 0, qualityScore: 0 };
 
   const caloriesRemaining = Math.max(0, userProfile.dailyCalorieTarget - todayCalories + todayCaloriesBurned);
@@ -499,22 +510,39 @@ export default function HomeDashboard({
         </div>
 
         {/* Water Hydration Card (col-span-1) */}
-        <div className="bg-white p-5 rounded-[2rem] border border-gray-150/60 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between space-y-4" id="bento_water_tile">
+        <div className="bg-white p-5 rounded-[2rem] border border-gray-150/60 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between space-y-3" id="bento_water_tile">
           <div className="flex justify-between items-center pb-2 border-b border-gray-100/80">
             <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
               <Droplets className="w-4.5 h-4.5 text-blue-500" />
               Hydration Center
             </h4>
-            <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100/40">
+            <span className="text-[10px] font-black text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100/40">
               {Math.round((todayWater / userProfile.waterTargetMl) * 100)}%
             </span>
           </div>
 
-          <div className="text-center py-2 space-y-1">
-            <div className="text-2xl font-black text-gray-900">
-              {todayWater} <span className="text-xs text-gray-400 font-normal">/ {userProfile.waterTargetMl}ml</span>
+          {/* Water Progress Ring */}
+          <div className="my-1 flex items-center justify-center">
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="56" cy="56" r="46" stroke="#eff6ff" strokeWidth="8" fill="transparent" />
+                <circle 
+                  cx="56" 
+                  cy="56" 
+                  r="46" 
+                  stroke="#3b82f6" 
+                  strokeWidth="8" 
+                  fill="transparent" 
+                  strokeDasharray={289}
+                  strokeDashoffset={289 - (289 * Math.min(todayWater, userProfile.waterTargetMl)) / userProfile.waterTargetMl}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute text-center flex flex-col items-center">
+                <span className="text-xl font-black text-blue-950 leading-none">{todayWater}</span>
+                <span className="text-[8px] text-gray-400 font-bold uppercase mt-0.5">/ {userProfile.waterTargetMl}ml</span>
+              </div>
             </div>
-            <p className="text-[9px] text-blue-500 font-bold">Weather-adjusted dynamic formulas active</p>
           </div>
 
           {/* Quick Custom triggers */}
@@ -523,17 +551,14 @@ export default function HomeDashboard({
               <button 
                 key={amt}
                 onClick={() => onQuickLogWater(amt)}
-                className="flex-1 py-1.5 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-xl text-[10px] font-extrabold text-gray-500 transition-colors border border-transparent hover:border-blue-100/60 cursor-pointer"
+                className="flex-1 py-1.5 bg-gray-50 hover:bg-blue-50 hover:text-blue-600 rounded-xl text-[10px] font-extrabold text-gray-500 transition-colors border border-transparent hover:border-blue-100/60 cursor-pointer transform active:scale-95"
               >
                 +{amt}ml
               </button>
             ))}
           </div>
 
-          {/* Hydration progress indicator bar */}
-          <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: `${Math.min(100, (todayWater / userProfile.waterTargetMl) * 100)}%` }} />
-          </div>
+          <p className="text-[9px] text-blue-500 font-bold text-center">Weather-adjusted dynamic formulas active</p>
         </div>
 
         {/* Sleep Tracker Widget (col-span-1) */}
@@ -627,6 +652,156 @@ export default function HomeDashboard({
           <div className="pt-3 border-t border-gray-100/80 flex items-center justify-between">
             <span className="text-[8px] text-gray-400 font-black uppercase tracking-widest">Interactive Trophy Room</span>
             <span className="text-[9px] text-gray-500 font-bold">7 Milestones</span>
+          </div>
+        </div>
+
+        {/* Steps & Activity Arena Card (col-span-1) */}
+        <div className="bg-white p-5 rounded-[2rem] border border-gray-150/60 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between space-y-3" id="bento_steps_tile">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100/80">
+            <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+              <Footprints className="w-4.5 h-4.5 text-amber-500" />
+              Steps Arena
+            </h4>
+            <span className="text-[10px] font-black text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-100/40">
+              {Math.round(stepProgressPercent)}%
+            </span>
+          </div>
+
+          {/* Steps Progress Ring */}
+          <div className="my-1 flex items-center justify-center">
+            <div className="relative w-28 h-28 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle cx="56" cy="56" r="46" stroke="#fffbeb" strokeWidth="8" fill="transparent" />
+                <circle 
+                  cx="56" 
+                  cy="56" 
+                  r="46" 
+                  stroke="#f59e0b" 
+                  strokeWidth="8" 
+                  fill="transparent" 
+                  strokeDasharray={289}
+                  strokeDashoffset={289 - (289 * Math.min(todaySteps, userProfile.stepTarget)) / userProfile.stepTarget}
+                  strokeLinecap="round"
+                />
+              </svg>
+              <div className="absolute text-center flex flex-col items-center">
+                <span className="text-xl font-black text-amber-950 leading-none">{Math.round(todaySteps)}</span>
+                <span className="text-[8px] text-gray-400 font-bold uppercase mt-0.5">/ {userProfile.stepTarget}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[10px] bg-amber-50/40 p-2.5 rounded-2xl border border-amber-100/40 text-amber-950 font-semibold leading-normal">
+            🚶 Background rhythm active. Dynamic step equations convert exercise minutes directly!
+          </div>
+        </div>
+
+        {/* Unified Concentric Bio-Rings Cockpit (col-span-1) */}
+        <div className="bg-white p-5 rounded-[2rem] border border-gray-150/60 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between space-y-3" id="bento_tri_rings_tile">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100/80">
+            <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+              <Sparkles className="w-4.5 h-4.5 text-indigo-500 animate-pulse" />
+              Wellness Cockpit
+            </h4>
+            <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100/40">
+              Tri-Sync
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between gap-1 py-1">
+            {/* Concentric Rings SVG */}
+            <div className="relative w-28 h-28 shrink-0 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                {/* Outer Ring: Calories */}
+                <circle cx="56" cy="56" r="46" stroke="#f3f4f6" strokeWidth="6" fill="transparent" />
+                <circle 
+                  cx="56" 
+                  cy="56" 
+                  r="46" 
+                  stroke="#10b981" 
+                  strokeWidth="6" 
+                  fill="transparent" 
+                  strokeDasharray={289}
+                  strokeDashoffset={289 - (289 * Math.min(todayCalories, userProfile.dailyCalorieTarget)) / userProfile.dailyCalorieTarget}
+                  strokeLinecap="round"
+                />
+
+                {/* Middle Ring: Steps */}
+                <circle cx="56" cy="56" r="34" stroke="#f3f4f6" strokeWidth="6" fill="transparent" />
+                <circle 
+                  cx="56" 
+                  cy="56" 
+                  r="34" 
+                  stroke="#f59e0b" 
+                  strokeWidth="6" 
+                  fill="transparent" 
+                  strokeDasharray={214}
+                  strokeDashoffset={214 - (214 * Math.min(todaySteps, userProfile.stepTarget)) / userProfile.stepTarget}
+                  strokeLinecap="round"
+                />
+
+                {/* Inner Ring: Water */}
+                <circle cx="56" cy="56" r="22" stroke="#f3f4f6" strokeWidth="6" fill="transparent" />
+                <circle 
+                  cx="56" 
+                  cy="56" 
+                  r="22" 
+                  stroke="#3b82f6" 
+                  strokeWidth="6" 
+                  fill="transparent" 
+                  strokeDasharray={138}
+                  strokeDashoffset={138 - (138 * Math.min(todayWater, userProfile.waterTargetMl)) / userProfile.waterTargetMl}
+                  strokeLinecap="round"
+                />
+              </svg>
+              {/* Center icon or label */}
+              <div className="absolute flex flex-col items-center justify-center">
+                <span className="text-[10px] font-black text-slate-900 leading-none">
+                  {Math.round(
+                    ((Math.min(100, (todayCalories / userProfile.dailyCalorieTarget) * 100) +
+                      Math.min(100, (todaySteps / userProfile.stepTarget) * 100) +
+                      Math.min(100, (todayWater / userProfile.waterTargetMl) * 100)) /
+                      3)
+                  )}%
+                </span>
+                <span className="text-[6px] text-gray-400 font-extrabold uppercase tracking-widest mt-0.5">Avg</span>
+              </div>
+            </div>
+
+            {/* Detailed Legend */}
+            <div className="flex-1 space-y-1.5 pl-1.5 min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[8px] text-gray-400 font-extrabold leading-none uppercase">Energy</div>
+                  <div className="text-[10px] text-gray-800 font-extrabold truncate">
+                    {todayCalories} / {userProfile.dailyCalorieTarget}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[8px] text-gray-400 font-extrabold leading-none uppercase">Steps</div>
+                  <div className="text-[10px] text-gray-800 font-extrabold truncate">
+                    {Math.round(todaySteps)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                <div className="min-w-0">
+                  <div className="text-[8px] text-gray-400 font-extrabold leading-none uppercase">Water</div>
+                  <div className="text-[10px] text-gray-800 font-extrabold truncate">
+                    {todayWater}ml
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-[8px] text-gray-400 font-black uppercase tracking-widest text-center pt-2 border-t border-gray-100/80">
+            Concentric Biomarkers
           </div>
         </div>
 

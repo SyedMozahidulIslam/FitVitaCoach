@@ -25,6 +25,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showCelebrationModal, setShowCelebrationModal] = useState(false);
+  const [hasCelebrated100, setHasCelebrated100] = useState(false);
 
   // --- Core Persistent State ---
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
@@ -269,6 +271,20 @@ export default function App() {
 
     return Math.min(100, score);
   };
+
+  const dailyHealthScore = calculateDailyHealthScore();
+
+  useEffect(() => {
+    if (dailyHealthScore === 100) {
+      if (!hasCelebrated100) {
+        setShowCelebrationModal(true);
+        setHasCelebrated100(true);
+        setXpPoints(p => p + 300); // Award a dynamic perfect day 100% health score bonus!
+      }
+    } else if (dailyHealthScore < 100) {
+      setHasCelebrated100(false);
+    }
+  }, [dailyHealthScore, hasCelebrated100]);
 
   // Update Profile parameters
   const handleUpdateProfile = (e: React.FormEvent) => {
@@ -595,6 +611,86 @@ export default function App() {
                 Save & Recalibrate Metrics
               </button>
             </form>
+
+          </div>
+        </div>
+      )}
+
+      {/* Celebratory 100% Daily Health Score Overlay Modal */}
+      {showCelebrationModal && (
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fadeIn" id="perfect_score_celebration_modal">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full border border-emerald-100 shadow-2xl relative text-center space-y-6 overflow-hidden">
+            
+            {/* Glowing background halo */}
+            <div className="absolute -left-12 -top-12 w-40 h-40 bg-emerald-100 rounded-full blur-2xl opacity-60 animate-pulse" />
+            <div className="absolute -right-12 -bottom-12 w-40 h-40 bg-amber-100 rounded-full blur-2xl opacity-60 animate-pulse" />
+            
+            {/* Elegant close button */}
+            <button 
+              onClick={() => setShowCelebrationModal(false)}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-400 hover:text-gray-900 transition-colors cursor-pointer z-10"
+              aria-label="Close celebration modal"
+            >
+              ✕
+            </button>
+
+            {/* Icon showcase container */}
+            <div className="flex justify-center relative">
+              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-yellow-300 to-amber-500 flex items-center justify-center border-4 border-white shadow-xl relative animate-bounce">
+                <Trophy className="w-12 h-12 text-slate-950" />
+                <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                </span>
+              </div>
+              
+              {/* Confetti element simulations */}
+              <div className="absolute top-0 left-1/4 text-xl animate-pulse">🎉</div>
+              <div className="absolute top-4 right-1/4 text-lg animate-bounce">✨</div>
+              <div className="absolute bottom-2 left-6 text-xl animate-bounce">⚡</div>
+              <div className="absolute bottom-6 right-6 text-lg animate-pulse">🌟</div>
+            </div>
+
+            <div className="space-y-2 relative">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                ⭐ Dynamic Wellness Milestone ⭐
+              </span>
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight">
+                Flawless Health Score!
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed px-4">
+                Incredible dedication, <span className="font-extrabold text-gray-800">{userProfile.name}</span>! You have successfully calibrated, hydrated, exercised, and tracked your diet to reach a perfect <span className="font-black text-emerald-600">100% daily health score</span> today.
+              </p>
+            </div>
+
+            {/* Reward box */}
+            <div className="bg-slate-950 text-white p-5 rounded-2xl border border-slate-800 text-left relative overflow-hidden">
+              <div className="absolute right-2 top-2 text-4xl opacity-10">🥇</div>
+              <div className="space-y-1.5 relative">
+                <div className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider">Perfect Day Claimed</div>
+                <div className="text-lg font-black text-amber-400 flex items-center gap-1">
+                  +300 XP Earned
+                  <span className="text-[10px] text-emerald-400 font-extrabold bg-emerald-950 px-2 py-0.5 rounded border border-emerald-800/60 ml-2 animate-pulse">
+                    Level Boosted
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-relaxed">
+                  Compounds directly into your FitVita Interactive Trophy & Badge system. Keep completing daily checklists to upgrade tiers!
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3 relative">
+              <button 
+                onClick={() => setShowCelebrationModal(false)}
+                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-500/15 hover:shadow-emerald-500/25 transition-all cursor-pointer transform active:scale-95"
+              >
+                Acknowledge & Keep Thriving
+              </button>
+              <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">
+                FitVita Coaching Engine Verified
+              </div>
+            </div>
 
           </div>
         </div>
