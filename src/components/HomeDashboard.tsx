@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { 
   Flame, Droplets, Footprints, Moon, Activity, Sparkles, Plus, 
-  Heart, Smile, Calendar, Trophy, Lightbulb, UserCheck, Compass, Clock, RefreshCw, Lock
+  Heart, Smile, Calendar, Trophy, Lightbulb, UserCheck, Compass, Clock, RefreshCw, Lock, Award, ShieldCheck
 } from "lucide-react";
-import { UserProfile, FoodLog, WorkoutLog, WaterLog, SleepLog } from "../types";
+import { UserProfile, FoodLog, WorkoutLog, WaterLog, SleepLog, Habit } from "../types";
 
 interface HomeDashboardProps {
   userProfile: UserProfile;
@@ -16,6 +16,7 @@ interface HomeDashboardProps {
   onAddActiveMinutes: (name: string, minutes: number, cal: number) => void;
   dailyHealthScore: number;
   xpPoints: number;
+  habits?: Habit[];
 }
 
 export default function HomeDashboard({
@@ -28,7 +29,8 @@ export default function HomeDashboard({
   onQuickLogCal,
   onAddActiveMinutes,
   dailyHealthScore,
-  xpPoints
+  xpPoints,
+  habits = []
 }: HomeDashboardProps) {
   // Current time states
   const [currentTime, setCurrentTime] = useState<string>("");
@@ -78,6 +80,65 @@ export default function HomeDashboard({
   const lastSleep = sleepLogs.length > 0 ? sleepLogs[sleepLogs.length - 1] : { hoursSlept: 0, qualityScore: 0 };
 
   const caloriesRemaining = Math.max(0, userProfile.dailyCalorieTarget - todayCalories + todayCaloriesBurned);
+
+  // Calculate dynamic unlocked badges
+  const maxHabitStreak = habits.length > 0 ? Math.max(...habits.map(h => h.streak)) : 0;
+  const totalHabitsCompleted = habits.reduce((s, h) => s + h.completedDays.length, 0);
+  const loggedFoodToday = todayFoods.length > 0;
+
+  const badgesList = [
+    {
+      id: "hydration_hero",
+      title: "Hydration Hero",
+      unlocked: todayWater >= 1000 || habits.some(h => h.name.toLowerCase().includes("water") && h.completedDays.includes(today)),
+      icon: <Droplets className="w-5 h-5 text-blue-500" />,
+      color: "bg-blue-50/80 border-blue-100 text-blue-700"
+    },
+    {
+      id: "consistency_king",
+      title: "Consistency King",
+      unlocked: maxHabitStreak >= 3,
+      icon: <Trophy className="w-5 h-5 text-amber-500" />,
+      color: "bg-amber-50/80 border-amber-100 text-amber-700"
+    },
+    {
+      id: "habit_pioneer",
+      title: "Habit Pioneer",
+      unlocked: totalHabitsCompleted >= 5,
+      icon: <Calendar className="w-5 h-5 text-emerald-500" />,
+      color: "bg-emerald-50/80 border-emerald-100 text-emerald-700"
+    },
+    {
+      id: "xp_enthusiast",
+      title: "XP Enthusiast",
+      unlocked: xpPoints >= 1500,
+      icon: <Sparkles className="w-5 h-5 text-purple-500" />,
+      color: "bg-purple-50/80 border-purple-100 text-purple-700"
+    },
+    {
+      id: "calorie_commander",
+      title: "Calorie Commander",
+      unlocked: loggedFoodToday,
+      icon: <Flame className="w-5 h-5 text-rose-500" />,
+      color: "bg-rose-50/80 border-rose-100 text-rose-700"
+    },
+    {
+      id: "apex_achiever",
+      title: "Apex Achiever",
+      unlocked: xpPoints >= 2000,
+      icon: <ShieldCheck className="w-5 h-5 text-teal-500" />,
+      color: "bg-teal-50/80 border-teal-100 text-teal-700"
+    },
+    {
+      id: "longevity_sage",
+      title: "Longevity Sage",
+      unlocked: xpPoints >= 2500 || maxHabitStreak >= 5,
+      icon: <Heart className="w-5 h-5 text-rose-600" />,
+      color: "bg-rose-50/80 border-rose-100 text-rose-700"
+    }
+  ];
+
+  const unlockedBadges = badgesList.filter(b => b.unlocked);
 
   // Healthy Tips Database
   const healthTips = [
@@ -524,6 +585,48 @@ export default function HomeDashboard({
           <div className="pt-3 border-t border-gray-100/80 flex items-center justify-between mt-4">
             <span className="text-[8px] text-gray-400 font-black uppercase tracking-widest">Ecosystem Certified</span>
             <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50/60 px-2 py-0.5 rounded-full border border-emerald-100/30">Science Backed</span>
+          </div>
+        </div>
+
+        {/* Virtual Badges Vault Quick-Glance (col-span-1) */}
+        <div className="bg-white p-5 rounded-[2rem] border border-gray-150/60 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between space-y-4" id="bento_badges_glance_tile">
+          <div className="flex justify-between items-center pb-2 border-b border-gray-100/80">
+            <h4 className="font-extrabold text-xs text-gray-900 flex items-center gap-1.5">
+              <Award className="w-4.5 h-4.5 text-emerald-500 animate-pulse" />
+              Trophy Badges Vault
+            </h4>
+            <span className="text-[10px] font-black text-teal-700 bg-teal-50 px-2.5 py-0.5 rounded-full border border-teal-100">
+              {unlockedBadges.length} Active
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {unlockedBadges.length > 0 ? (
+              <div className="grid grid-cols-4 gap-2">
+                {unlockedBadges.map(b => (
+                  <div 
+                    key={b.id} 
+                    title={`${b.title}: Unlocked`}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center justify-center transition-all hover:scale-105 ${b.color}`}
+                  >
+                    {b.icon}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[10px] text-gray-400 font-medium italic text-center py-4">
+                No virtual badges unlocked yet. Complete habit streaks or logs to claim trophies!
+              </p>
+            )}
+
+            <div className="text-[10px] bg-slate-50 p-2.5 rounded-2xl border border-gray-150 text-slate-700 font-semibold leading-relaxed">
+              🏆 Earn badges to trigger premium XP bonuses and level up!
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-gray-100/80 flex items-center justify-between">
+            <span className="text-[8px] text-gray-400 font-black uppercase tracking-widest">Interactive Trophy Room</span>
+            <span className="text-[9px] text-gray-500 font-bold">7 Milestones</span>
           </div>
         </div>
 

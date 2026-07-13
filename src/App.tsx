@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Flame, Droplets, Moon, Activity, Dumbbell, Sparkles, Scale, 
   Smile, ClipboardList, BookOpen, Star, User, Settings, ShieldAlert,
-  ChevronRight, Heart, Menu, X, Plus, Info
+  ChevronRight, Heart, Menu, X, Plus, Info, Trophy
 } from "lucide-react";
 
 import { UserProfile, FoodLog, WorkoutLog, WaterLog, SleepLog, MoodLog, Habit, Medication } from "./types";
@@ -19,6 +19,7 @@ import HabitCoach from "./components/HabitCoach";
 import MedicationCenter from "./components/MedicationCenter";
 import MoreModules from "./components/MoreModules";
 import AICoachChat from "./components/AICoachChat";
+import BadgesVault from "./components/BadgesVault";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
@@ -315,6 +316,7 @@ export default function App() {
               { id: "mental", label: "Mindfulness Center", icon: Smile },
               { id: "habits", label: "Habit Formulator", icon: Star },
               { id: "meds", label: "Medication & Vault", icon: ClipboardList },
+              { id: "badges", label: "Trophy & Badges", icon: Trophy },
               { id: "modules", label: "Lifestyle Modules", icon: BookOpen },
               { id: "coach", label: "AI Health Coach", icon: Heart },
             ].map(item => {
@@ -384,6 +386,7 @@ export default function App() {
             onAddActiveMinutes={(name, min, cal) => handleAddWorkoutLog({ exerciseName: name, category: "Cardio", durationMinutes: min, caloriesBurned: cal, notes: "Logged via quick dashboard click" })}
             dailyHealthScore={calculateDailyHealthScore()}
             xpPoints={xpPoints}
+            habits={habits}
           />
         )}
 
@@ -446,6 +449,16 @@ export default function App() {
             onToggleMedication={handleToggleMedication}
             onAddMedication={handleAddMedication}
             onAddXp={handleAddXp}
+          />
+        )}
+
+        {activeTab === "badges" && (
+          <BadgesVault 
+            xpPoints={xpPoints}
+            habits={habits}
+            waterLogs={waterLogs}
+            foodLogs={foodLogs}
+            userProfile={userProfile}
           />
         )}
 
