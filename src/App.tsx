@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { 
   Flame, Droplets, Moon, Activity, Dumbbell, Sparkles, Scale, 
   Smile, ClipboardList, BookOpen, Star, User, Settings, ShieldAlert,
-  ChevronRight, Heart, Menu, X, Plus, Info, Trophy
+  ChevronRight, Heart, Menu, X, Plus, Info, Trophy, ShieldCheck
 } from "lucide-react";
 
 import { UserProfile, FoodLog, WorkoutLog, WaterLog, SleepLog, MoodLog, Habit, Medication } from "./types";
@@ -10,6 +10,7 @@ import { secureStorage } from "./utils/security";
 
 // Import custom modules
 import HomeDashboard from "./components/HomeDashboard";
+import HealthIntelligence from "./components/HealthIntelligence";
 import SmartCalorieTracker from "./components/SmartCalorieTracker";
 import AIMealPlanner from "./components/AIMealPlanner";
 import FitnessModule from "./components/FitnessModule";
@@ -91,6 +92,100 @@ const initialWaterLogs = (): WaterLog[] => {
   return logs;
 };
 
+const initialMoodLogs = (): MoodLog[] => {
+  const logs: MoodLog[] = [];
+  const emotionsList = [
+    ["Calm", "Relaxed", "Grateful"], // day 0
+    ["Motivated", "Confident", "Happy"], // day 1
+    ["Tired", "Burned Out", "Sad"], // day 2
+    ["Stressed", "Anxious", "Overwhelmed"], // day 3
+    ["Calm", "Content", "Hopeful"], // day 4
+    ["Excited", "Happy", "Proud"], // day 5
+    ["Loved", "Grateful", "Relaxed"], // day 6
+    ["Frustrated", "Tired", "Anxious"], // day 7
+    ["Motivated", "Confident", "Hopeful"], // day 8
+    ["Calm", "Relaxed", "Content"], // day 9
+    ["Lonely", "Sad", "Disappointed"], // day 10
+    ["Happy", "Grateful", "Loved"], // day 11
+    ["Excited", "Proud", "Happy"], // day 12
+    ["Burned Out", "Tired", "Stressed"], // day 13
+    ["Calm", "Content", "Relaxed"], // day 14
+    ["Hopeful", "Confident", "Motivated"], // day 15
+    ["Overwhelmed", "Frustrated", "Stressed"], // day 16
+    ["Relaxed", "Grateful", "Calm"], // day 17
+    ["Happy", "Motivated", "Excited"], // day 18
+    ["Calm", "Relaxed", "Content"], // day 19
+  ];
+
+  const triggersList = [
+    ["Sleep", "Weather", "Family"],
+    ["Exercise", "Work", "Health"],
+    ["Work", "Sleep", "Finance"],
+    ["Work", "Study", "Social Media"],
+    ["Sleep", "Food", "Exercise"],
+    ["Relationships", "Friends", "Travel"],
+    ["Family", "Relationships", "Food"],
+    ["Study", "Finance", "Weather"],
+    ["Exercise", "Health", "Work"],
+    ["Sleep", "Weather", "Relationships"],
+    ["Social Media", "Finance", "Family"],
+    ["Friends", "Food", "Relationships"],
+    ["Work", "Travel", "Exercise"],
+    ["Work", "Finance", "Sleep"],
+    ["Sleep", "Exercise", "Health"],
+    ["Study", "Travel", "Food"],
+    ["Work", "Social Media", "Weather"],
+    ["Relationships", "Family", "Sleep"],
+    ["Exercise", "Friends", "Work"],
+    ["Sleep", "Study", "Food"]
+  ];
+
+  for (let i = 0; i < 20; i++) {
+    const d = getRelativeDateStr(i);
+    let score = 8;
+    let stress = 3;
+    let energy = 7;
+    let motivation = 8;
+    let confidence = 7;
+    let productivity = 8;
+    let social = 6;
+
+    if (i % 4 === 0) {
+      score = 9; stress = 2; energy = 8; motivation = 9; confidence = 8; productivity = 9; social = 7;
+    } else if (i % 4 === 1) {
+      score = 7; stress = 4; energy = 6; motivation = 7; confidence = 7; productivity = 6; social = 5;
+    } else if (i % 4 === 2) {
+      score = 4; stress = 8; energy = 3; motivation = 4; confidence = 4; productivity = 3; social = 2;
+    } else {
+      score = 6; stress = 5; energy = 5; motivation = 6; confidence = 6; productivity = 5; social = 5;
+    }
+
+    const dayEmotions = emotionsList[i % emotionsList.length];
+    const intensities: Record<string, number> = {};
+    dayEmotions.forEach(emo => {
+      intensities[emo] = score;
+    });
+
+    logs.push({
+      id: `mood-past-${i}`,
+      timestamp: `${d}T18:30:00Z`,
+      score,
+      stressLevel: stress,
+      journalText: `Felt ${dayEmotions.join(", ")} today. Influenced by ${triggersList[i % triggersList.length].join(", ")}. Tracking emotional stability.`,
+      emotions: dayEmotions,
+      emotionIntensities: intensities,
+      energyLevel: energy,
+      motivationLevel: motivation,
+      confidenceLevel: confidence,
+      productivityLevel: productivity,
+      socialLevel: social,
+      triggers: triggersList[i % triggersList.length],
+      isPrivate: false
+    });
+  }
+  return logs;
+};
+
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>("dashboard");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -149,7 +244,7 @@ export default function App() {
   const [moodLogs, setMoodLogs] = useState<MoodLog[]>(() => {
     const saved = secureStorage.getItem("fit_mood_logs");
     if (saved) return JSON.parse(saved);
-    return [];
+    return initialMoodLogs();
   });
 
   const [habits, setHabits] = useState<Habit[]>(() => {
@@ -470,6 +565,7 @@ export default function App() {
           <nav className={`md:block space-y-1.5 ${isMobileMenuOpen ? "block" : "hidden md:block"}`}>
             {[
               { id: "dashboard", label: "Dashboard", icon: Activity },
+              { id: "health_profile", label: "Health Intelligence", icon: ShieldCheck },
               { id: "calories", label: "Nutrition Diary", icon: Flame },
               { id: "planner", label: "AI Meal Planner", icon: Sparkles },
               { id: "fitness", label: "Fitness Hub", icon: Dumbbell },
@@ -551,6 +647,19 @@ export default function App() {
           />
         )}
 
+        {activeTab === "health_profile" && (
+          <HealthIntelligence 
+            userProfile={userProfile}
+            foodLogs={foodLogs}
+            workoutLogs={workoutLogs}
+            waterLogs={waterLogs}
+            sleepLogs={sleepLogs}
+            moodLogs={moodLogs}
+            onUpdateProfile={(updated) => setUserProfile(prev => ({ ...prev, ...updated }))}
+            onAddXp={handleAddXp}
+          />
+        )}
+
         {activeTab === "calories" && (
           <SmartCalorieTracker 
             userProfile={userProfile}
@@ -589,6 +698,10 @@ export default function App() {
         {activeTab === "mental" && (
           <MentalWellness 
             moodLogs={moodLogs}
+            workoutLogs={workoutLogs}
+            foodLogs={foodLogs}
+            waterLogs={waterLogs}
+            sleepLogs={sleepLogs}
             onAddMoodLog={handleAddMoodLog}
             onAddXp={handleAddXp}
           />

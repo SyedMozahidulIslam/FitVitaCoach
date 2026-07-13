@@ -44,6 +44,66 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// Dynamic Health Intelligence Engine deep insights API endpoint
+app.post("/api/coach/health-insights", async (req, res) => {
+  const { userProfile, foodLogs, workoutLogs, waterLogs, sleepLogs, moodLogs } = req.body;
+  const ai = getGeminiClient();
+
+  if (!ai) {
+    console.warn("GEMINI_API_KEY not configured. Running offline health intelligence parser.");
+    return res.json({ useFallback: true });
+  }
+
+  const prompt = `
+    Conduct a highly thorough, clinically rigorous Personal Health Risk Assessment and Wellness Analysis based on the following comprehensive biometric and lifestyle dataset.
+    
+    User Profile:
+    ${JSON.stringify(userProfile, null, 2)}
+    
+    Recent Lifestyle Logs:
+    - Food Logs (Calories & Macros): ${JSON.stringify(foodLogs?.slice(-3))}
+    - Workout Logs: ${JSON.stringify(workoutLogs?.slice(-3))}
+    - Water Logs: ${JSON.stringify(waterLogs?.slice(-3))}
+    - Sleep Logs: ${JSON.stringify(sleepLogs?.slice(-3))}
+    - Mood Logs: ${JSON.stringify(moodLogs?.slice(-3))}
+    
+    Return a strictly formatted JSON object with detailed, medically grounded personalized insights. Speak with the authority of an elite clinical health coach and MD.
+    Make sure your bullet points are specific, highly action-oriented, and reference the actual values (e.g., if blood pressure is 135/85, call it out specifically; if HbA1c is 6.2%, refer to that number and state exact strategies). Include regional Bangladeshi or Indian wholesome dietary recommendations where relevant.
+    
+    Format the response as a strict JSON object with this exact schema:
+    {
+      "strengths": ["Insight strength 1", "Insight strength 2", "Insight strength 3"],
+      "riskFactors": ["Clinical risk factor 1", "Clinical risk factor 2", "Clinical risk factor 3"],
+      "recommendedImprovements": ["Medically backed improvement 1", "Medically backed improvement 2", "Medically backed improvement 3"],
+      "dailyPriorities": ["Daily priority 1", "Daily priority 2", "Daily priority 3"],
+      "weeklyGoals": ["Weekly goal 1", "Weekly goal 2", "Weekly goal 3"],
+      "preventiveSuggestions": ["Preventive suggestions 1", "Preventive suggestions 2"],
+      "recommendedCheckups": ["Clinical screening or checkup 1", "Clinical screening 2"]
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.15,
+      },
+    });
+
+    try {
+      const parsed = JSON.parse(response.text || "{}");
+      res.json({ useFallback: false, insights: parsed });
+    } catch {
+      res.json({ useFallback: true });
+    }
+  } catch (error) {
+    console.error("Gemini Health Insights API Error:", error);
+    res.json({ useFallback: true });
+  }
+});
+
 // AI Coaching chat API endpoint
 app.post("/api/coach/chat", async (req, res) => {
   const { messages, userProfile } = req.body;

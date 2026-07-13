@@ -14,6 +14,59 @@ export interface UserProfile {
   waterTargetMl: number;
   sleepTargetHours: number;
   stepTarget: number;
+
+  // --- Extended Body Measurements ---
+  waistCm?: number;
+  hipCm?: number;
+  neckCm?: number;
+  chestCm?: number;
+  armCm?: number;
+  thighCm?: number;
+
+  // --- Extended Body Composition ---
+  bodyFatPercent?: number;
+  muscleMassPercent?: number;
+  bodyWaterPercent?: number;
+  visceralFatLevel?: number;
+
+  // --- Extended Clinical & Biometrics ---
+  bloodGroup?: "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-" | "O+" | "O-";
+  restingHeartRate?: number;
+  bloodPressureSystolic?: number;
+  bloodPressureDiastolic?: number;
+  bloodSugarFasting?: number;
+  bloodSugarRandom?: number;
+  hbA1c?: number;
+  cholesterolTotal?: number;
+  cholesterolHDL?: number;
+  cholesterolLDL?: number;
+  triglycerides?: number;
+  spo2?: number;
+  bodyTemperature?: number;
+
+  // --- Extended Lifestyle & Behavioral ---
+  dailyWaterIntakeMl?: number;
+  sleepDurationTargetHours?: number;
+  sleepQualityScore?: number;
+  stressLevel?: "Low" | "Moderate" | "High" | "Extreme";
+  moodScore?: number; // 1-10
+  smokingHabit?: "Never" | "Former" | "Occasional" | "Daily";
+  alcoholHabit?: "Never" | "Occasional" | "Social" | "Heavy";
+  caffeineIntake?: "None" | "Low (1-2 cups)" | "Moderate (3-4 cups)" | "High (5+ cups)";
+  occupation?: string;
+  foodPreference?: "Standard" | "Vegetarian" | "Vegan" | "Keto" | "Halal" | "Kosher" | "Pescatarian";
+  foodAllergies?: string[];
+  religiousDietaryRestrictions?: string[];
+
+  // --- Extended Medical History ---
+  existingMedicalConditions?: string[];
+  familyMedicalHistory?: string[];
+  currentMedications?: string[];
+  vitaminsSupplements?: string[];
+  surgeryHistory?: string[];
+  vaccinationHistory?: string[];
+  pregnancyStatus?: "Not Applicable" | "Not Pregnant" | "Pregnant" | "Postpartum";
+  recentLaboratoryReports?: string[]; // strings summarizing reports
 }
 
 export interface FoodLog {
@@ -61,6 +114,17 @@ export interface MoodLog {
   score: number; // 1-10
   stressLevel: number; // 1-10
   journalText?: string;
+  emotions?: string[];
+  emotionIntensities?: Record<string, number>;
+  energyLevel?: number;
+  motivationLevel?: number;
+  confidenceLevel?: number;
+  productivityLevel?: number;
+  socialLevel?: number;
+  triggers?: string[];
+  voiceNoteUrl?: string;
+  photoAttachmentUrl?: string;
+  isPrivate?: boolean;
 }
 
 export interface Habit {
